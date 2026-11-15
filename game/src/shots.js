@@ -31,22 +31,23 @@ export function applyShot(name) {
   const def = G.bots.filter((b) => b.team === 'def');
   if (name === 'start') {
     G.phase = 'buy'; G.phaseT = 11; G.round = 1;
-    place(p, 0.5, 20.6); p.yaw = 0.12; p.pitch = -0.02;
-    place(atk[0], -2.6, 21.8, -2, 6);
-    place(atk[1], 3.4, 22.4, 2, 4);
-    place(atk[2], -5.6, 18.4, -8, 2);
+    place(p, 0.5, 20.6); p.yaw = 0.05; p.pitch = -0.02;
+    place(atk[0], -2.4, 16.6, -1, 0);
+    place(atk[1], 3.2, 15.0, 1, -2);
+    place(atk[2], -6.8, 13.2, -5, -4);
     announce('Round 1', 'Buy phase — Ember Squad attack Site A · Furnace Hall', 9999);
   } else if (name === 'play') {
     G.phase = 'live'; G.round = 4; G.roundTime = 63;
     G.score.atk = 2; G.score.def = 1;
+    G.banner = null;
     giveLongarm(p, 24); p.money = 1650; p.hp = 72; p.armor = 40;
-    place(p, 2.5, 6.5, -3.5, -4.6); p.pitch = -0.03;
-    place(def[0], -3.5, -4.6, 2.5, 6.5);
-    place(def[1], 5.5, -6.2, 2.5, 6.5);
-    place(def[2], 0.5, -13, 0, 4);
+    place(p, 19.5, 5.5, 23.5, -3.5); p.pitch = -0.03;
+    place(def[0], 23.5, -3.5, 19.5, 5.5);
+    place(def[1], 16.8, -7.5, 19.5, 5.5);
+    place(def[2], 27.5, -9.5, 19.5, 5.5);
     giveLongarm(def[0], 30); giveLongarm(def[1], 30);
-    place(atk[0], -6.5, 1.5, -4, -10);
-    place(atk[1], 8.5, 10.5, 2, -4);
+    place(atk[0], 14.0, 1.0, 16, -8);
+    place(atk[1], 25.5, 10.5, 23, -2);
     shotTarget = def[0];
     feed('Vex ▸ Moss');
     feed('You ▸ Hale (headshot)');
@@ -57,8 +58,9 @@ export function applyShot(name) {
     G.bomb.pos = { x: -20.5, z: -5.2 }; G.bomb.fuse = 12.4;
     showBombAt(-20.5, -5.2);
     giveLongarm(p, 17); p.money = 2900; p.hp = 45; p.armor = 15;
-    place(p, -16.6, -1.4, -20.5, -5.2); p.pitch = -0.04;
-    place(def[0], -14.2, -4.4, -20.5, -5.2);
+    place(p, -15.6, -0.4, -20.5, -5.2); p.pitch = -0.04;
+    place(def[0], -18.6, -3.1, -20.5, -5.2);
+    def[0].crouching = true; poseBot(def[0]);
     place(atk[0], -25, -11.5, -14, -4);
     place(atk[1], -19, -13.2, -18, 0);
     G.defuseInfo = { label: 'Hale is defusing…', frac: 0.45 };

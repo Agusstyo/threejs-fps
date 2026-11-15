@@ -60,7 +60,7 @@ export function buildMap(scene) {
   sun.shadow.camera.top = 40; sun.shadow.camera.bottom = -40;
   sun.shadow.camera.far = 130; sun.shadow.bias = -0.0006;
   group.add(sun);
-  group.add(new THREE.HemisphereLight(0x8fa3c7, 0x4a3a2c, 0.85));
+  group.add(new THREE.HemisphereLight(0x8fa3c7, 0x4a3a2c, 0.98));
 
   // ---- perimeter ----
   box(0, -26.5, 70, 1, 5.5, mats.darkMetal); box(0, 26.5, 70, 1, 5.5, mats.darkMetal);

@@ -10,6 +10,7 @@ const $ = (id) => document.getElementById(id);
 const el = {};
 let hitmarkUntil = 0, hitmarkKill = false, hurtUntil = 0, hurtAngle = 0;
 let feedRendered = -1;
+let mmStatic = null;   // offscreen canvas with walls + sites, painted once
 
 const SHOP_ROWS = [
   { item: 'longarm', key: '1' }, { item: 'badger', key: '2' }, { item: 'mule', key: '3' },
@@ -21,8 +22,9 @@ export function initHud() {
   for (const id of ['timer', 'phaseLabel', 'scoreAtk', 'scoreDef', 'feed', 'hpFill', 'hpText', 'armorFill',
                     'money', 'wpnName', 'ammoMag', 'ammoReserve', 'grenades', 'crosshair', 'hitmarker',
                     'banner', 'bannerTitle', 'bannerSub', 'interact', 'interactLabel', 'interactFill',
-                    'buyMenu', 'buyRows', 'buyTimer', 'vignette', 'hurtDir', 'bombTag', 'spectate', 'lockTip'])
+                    'buyMenu', 'buyRows', 'buyTimer', 'vignette', 'hurtDir', 'bombTag', 'spectate', 'lockTip', 'minimap'])
     el[id] = $(id);
+  el.mm = el.minimap.getContext('2d');
   el.buyRows.innerHTML = '';
   for (const row of SHOP_ROWS) {
     const def = WEAPONS[row.item];
@@ -133,4 +135,69 @@ export function updateHud() {
   el.spectate.hidden = p.alive || G.mode !== 'play';
   if (!p.alive && G.spectateName) el.spectate.textContent = `You are down — spectating ${G.spectateName}. The round plays out.`;
   el.lockTip.hidden = !(G.mode === 'play' && p.alive && !isLocked() && G.shotName === null);
+
+  drawMinimap(p);
+}
+
+// ---- minimap: walls and sites are painted once to an offscreen canvas;
+// per frame it only stamps actor dots, gunfire pings and the charge. ----
+const MM_W = 176, MM_H = 136;
+const mmX = (x) => 4 + (x + 35) / 70 * (MM_W - 8);
+const mmY = (z) => 4 + (z + 27) / 54 * (MM_H - 8);
+
+function buildMinimapStatic() {
+  mmStatic = document.createElement('canvas');
+  mmStatic.width = MM_W; mmStatic.height = MM_H;
+  const c = mmStatic.getContext('2d');
+  c.fillStyle = 'rgba(24,26,31,1)';
+  c.fillRect(0, 0, MM_W, MM_H);
+  c.fillStyle = 'rgba(236,231,221,0.20)';
+  for (const b of G.world.colliders) {
+    if (b.y0 >= 1 || b.y1 < 1.2) continue;   // ground, roofs and the deck stay off the map
+    c.fillRect(mmX(b.x0), mmY(b.z0), Math.max(1.5, (b.x1 - b.x0) / 70 * (MM_W - 8)), Math.max(1.5, (b.z1 - b.z0) / 54 * (MM_H - 8)));
+  }
+  for (const [key, site] of Object.entries(G.world.sites)) {
+    c.strokeStyle = key === 'A' ? '#ff8c42' : '#37c8b4';
+    c.lineWidth = 1.5;
+    c.beginPath(); c.arc(mmX(site.x), mmY(site.z), site.r / 70 * (MM_W - 8), 0, Math.PI * 2); c.stroke();
+    c.fillStyle = c.strokeStyle;
+    c.font = '700 10px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(key, mmX(site.x), mmY(site.z));
+  }
+}
+
+function drawMinimap(p) {
+  if (!G.world) return;
+  if (!mmStatic) buildMinimapStatic();
+  const c = el.mm;
+  c.clearRect(0, 0, MM_W, MM_H);
+  c.drawImage(mmStatic, 0, 0);
+  // enemy gunfire heard in the last moments shows as a fading ping
+  for (const s of G.recentShots) {
+    if (s.team === p.team) continue;
+    const age = G.time - s.t;
+    if (age > 1.4) continue;
+    c.fillStyle = `rgba(255,83,71,${0.85 * (1 - age / 1.4)})`;
+    c.beginPath(); c.arc(mmX(s.x), mmY(s.z), 3, 0, Math.PI * 2); c.fill();
+  }
+  // the charge, once it is on the ground
+  if ((G.bomb.state === 'planted' || G.bomb.state === 'dropped') && G.bomb.pos) {
+    c.fillStyle = Math.sin(G.time * 6) > 0 ? '#ff3020' : '#ffd479';
+    c.fillRect(mmX(G.bomb.pos.x) - 2.5, mmY(G.bomb.pos.z) - 2.5, 5, 5);
+  }
+  // teammates
+  for (const b of G.bots) {
+    if (!b.alive || b.team !== p.team) continue;
+    c.fillStyle = '#ff8c42';
+    c.beginPath(); c.arc(mmX(b.pos.x), mmY(b.pos.z), 2.6, 0, Math.PI * 2); c.fill();
+  }
+  // the player, with a facing tick
+  c.fillStyle = '#ffffff';
+  c.beginPath(); c.arc(mmX(p.pos.x), mmY(p.pos.z), 3, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = '#ffffff'; c.lineWidth = 1.6;
+  c.beginPath();
+  c.moveTo(mmX(p.pos.x), mmY(p.pos.z));
+  c.lineTo(mmX(p.pos.x) - Math.sin(p.yaw) * 8, mmY(p.pos.z) - Math.cos(p.yaw) * 8);
+  c.stroke();
 }

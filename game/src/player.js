@@ -138,7 +138,8 @@ function showViewModel(p) {
   if (!w) return;
   p.vmWeaponId = w.def.id;
   const built = p.vmBuild(w.def.id, p.team);
-  built.group.position.set(0.24, -0.22, -0.45);
+  built.group.position.set(0.26, -0.235, -0.5);
+  built.group.scale.setScalar(0.88);
   p.vmGroup.add(built.group);
   p.vmCurrent = built;
 }
@@ -246,9 +247,9 @@ export function poseCamera(camera, dt) {
       const reloading = w && w.reloadingUntil > G.time;
       const relK = reloading ? Math.sin(Math.min(1, 1 - (w.reloadingUntil - G.time) / w.def.reload) * Math.PI) : 0;
       g.position.set(
-        lerp(0.24, 0, p.adsSmooth) + swayX,
-        lerp(-0.22, -0.165, p.adsSmooth) + swayY + Math.sin(bobT * 2) * bob - relK * 0.06,
-        -0.45 + p.kick + Math.cos(bobT) * bob * 0.6,
+        lerp(0.26, 0, p.adsSmooth) + swayX,
+        lerp(-0.235, -0.165, p.adsSmooth) + swayY + Math.sin(bobT * 2) * bob - relK * 0.06,
+        -0.5 + p.kick + Math.cos(bobT) * bob * 0.6,
       );
       g.rotation.set(relK * 0.7 + p.kick * 1.4, swayX * 2, 0);
     }
