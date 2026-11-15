@@ -39,6 +39,7 @@ G.camera = camera;
 G.world = buildMap(scene);
 G.player = createPlayer(G.world.spawns.atk[0]);
 setupActors();
+window.__ashworks = G;   // state handle for automated play-tests
 attachViewModels(camera, buildViewModel);
 initFx(scene, camera);
 initHud();

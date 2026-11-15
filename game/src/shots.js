@@ -41,10 +41,10 @@ export function applyShot(name) {
     G.score.atk = 2; G.score.def = 1;
     G.banner = null;
     giveLongarm(p, 24); p.money = 1650; p.hp = 72; p.armor = 40;
-    place(p, 19.5, 5.5, 23.5, -3.5); p.pitch = -0.03;
-    place(def[0], 23.5, -3.5, 19.5, 5.5);
-    place(def[1], 16.8, -7.5, 19.5, 5.5);
-    place(def[2], 27.5, -9.5, 19.5, 5.5);
+    place(p, 12.5, 4.0, 23, -7); p.pitch = -0.03;
+    place(def[0], 23.5, -3.5, 12.5, 4.0);
+    place(def[1], 16.8, -7.5, 12.5, 4.0);
+    place(def[2], 27.5, -9.5, 12.5, 4.0);
     giveLongarm(def[0], 30); giveLongarm(def[1], 30);
     place(atk[0], 14.0, 1.0, 16, -8);
     place(atk[1], 25.5, 10.5, 23, -2);
@@ -72,7 +72,7 @@ export function applyShot(name) {
 export function shotFrame(name) {
   if (name !== 'play' || !shotTarget) return;
   const p = G.player;
-  if (G.time - lastTracerAt > 0.5) {
+  if (G.time - lastTracerAt > 0.05) {
     lastTracerAt = G.time;
     eyePos(p, _from);
     _fwd.set(-Math.sin(p.yaw), 0, -Math.cos(p.yaw));
