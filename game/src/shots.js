@@ -1,0 +1,87 @@
+// Screenshot scenes. The competition's screenshots are real renders of this
+// code in a browser; these tableaux pose a live match at three beats — the
+// buy phase, a mid-round fight, and a planted charge — with fixed positions
+// so the same URL always renders the same frame. ?shot=start|play|end
+import * as THREE from 'three';
+import { G, announce, feed } from './state.js';
+import { makeWeapon } from './weapons.js';
+import { fxTracer, fxImpact } from './fx.js';
+import { poseBot } from './bots.js';
+import { showBombAt } from './rounds.js';
+import { eyePos } from './player.js';
+
+function faceToward(a, x, z) { a.yaw = Math.atan2(-(x - a.pos.x), -(z - a.pos.z)); }
+function place(a, x, z, tx, tz) {
+  a.pos.set(x, 0, z);
+  if (tx !== undefined) faceToward(a, tx, tz);
+  if (a.fig) poseBot(a);
+}
+function giveLongarm(a, mag) {
+  a.weapons.primary = makeWeapon('longarm');
+  a.current = 'primary';
+  a.weapons.primary.mag = mag;
+}
+
+let shotTarget = null, lastTracerAt = -9, lastHitAt = -9;
+const _from = new THREE.Vector3(), _to = new THREE.Vector3(), _fwd = new THREE.Vector3(), _right = new THREE.Vector3();
+
+export function applyShot(name) {
+  const p = G.player;
+  const atk = G.bots.filter((b) => b.team === 'atk');
+  const def = G.bots.filter((b) => b.team === 'def');
+  if (name === 'start') {
+    G.phase = 'buy'; G.phaseT = 11; G.round = 1;
+    place(p, 0.5, 20.6); p.yaw = 0.12; p.pitch = -0.02;
+    place(atk[0], -2.6, 21.8, -2, 6);
+    place(atk[1], 3.4, 22.4, 2, 4);
+    place(atk[2], -5.6, 18.4, -8, 2);
+    announce('Round 1', 'Buy phase — Ember Squad attack Site A · Furnace Hall', 9999);
+  } else if (name === 'play') {
+    G.phase = 'live'; G.round = 4; G.roundTime = 63;
+    G.score.atk = 2; G.score.def = 1;
+    giveLongarm(p, 24); p.money = 1650; p.hp = 72; p.armor = 40;
+    place(p, 2.5, 6.5, -3.5, -4.6); p.pitch = -0.03;
+    place(def[0], -3.5, -4.6, 2.5, 6.5);
+    place(def[1], 5.5, -6.2, 2.5, 6.5);
+    place(def[2], 0.5, -13, 0, 4);
+    giveLongarm(def[0], 30); giveLongarm(def[1], 30);
+    place(atk[0], -6.5, 1.5, -4, -10);
+    place(atk[1], 8.5, 10.5, 2, -4);
+    shotTarget = def[0];
+    feed('Vex ▸ Moss');
+    feed('You ▸ Hale (headshot)');
+  } else if (name === 'end') {
+    G.phase = 'planted'; G.round = 6;
+    G.score.atk = 3; G.score.def = 2;
+    G.bomb.state = 'planted'; G.bomb.site = 'A';
+    G.bomb.pos = { x: -20.5, z: -5.2 }; G.bomb.fuse = 12.4;
+    showBombAt(-20.5, -5.2);
+    giveLongarm(p, 17); p.money = 2900; p.hp = 45; p.armor = 15;
+    place(p, -16.6, -1.4, -20.5, -5.2); p.pitch = -0.04;
+    place(def[0], -14.2, -4.4, -20.5, -5.2);
+    place(atk[0], -25, -11.5, -14, -4);
+    place(atk[1], -19, -13.2, -18, 0);
+    G.defuseInfo = { label: 'Hale is defusing…', frac: 0.45 };
+    announce('Charge planted', 'A Warden is on the defuse — hold the site', 9999);
+  }
+}
+
+// Keeps the 'play' tableau alive: a tracer and a hitmarker on a slow loop.
+export function shotFrame(name) {
+  if (name !== 'play' || !shotTarget) return;
+  const p = G.player;
+  if (G.time - lastTracerAt > 0.5) {
+    lastTracerAt = G.time;
+    eyePos(p, _from);
+    _fwd.set(-Math.sin(p.yaw), 0, -Math.cos(p.yaw));
+    _right.set(-_fwd.z, 0, _fwd.x);
+    _from.addScaledVector(_fwd, 0.6).addScaledVector(_right, 0.22); _from.y -= 0.18;
+    _to.set(shotTarget.pos.x, shotTarget.pos.y + 1.05, shotTarget.pos.z);
+    fxTracer(_from, _to);
+    fxImpact(_to);
+  }
+  if (G.time - lastHitAt > 1.4) {
+    lastHitAt = G.time;
+    G.events.push({ k: 'hit', head: false, killed: false });
+  }
+}
