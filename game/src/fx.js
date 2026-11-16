@@ -14,7 +14,7 @@ function glowTexture(inner, outer) {
 }
 
 let scene, camera;
-let tracers, puffs, flashes, boom, smoke, smokePos;
+let tracers, puffs, flashes, boom, smoke, smokePos, sparks;
 let muzzleLight, boomLight;
 const _v1 = new THREE.Vector3(), _v2 = new THREE.Vector3();
 
@@ -42,6 +42,11 @@ export function initFx(s, cam) {
 
   boom = pool(3, () => { const m = new THREE.Sprite(flashMat()); m.visible = false; scene.add(m); return { m, ttl: 0, max: 0.5 }; });
   boomLight = new THREE.PointLight(0xff8040, 0, 30, 1.5); scene.add(boomLight);
+
+  // Hit sparks: small additive sprites with velocity and gravity, so a
+  // bullet that lands on a body reads differently from one that hits a wall.
+  const sparkMat = () => new THREE.SpriteMaterial({ map: softTex, color: 0xffd9a8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  sparks = pool(26, () => { const m = new THREE.Sprite(sparkMat()); m.visible = false; scene.add(m); return { m, ttl: 0, max: 0.3, vel: new THREE.Vector3() }; });
 
   // Furnace smoke: particles rise, swell and loop.
   const N = 42;
@@ -89,6 +94,29 @@ export function fxMuzzle(p) {
   it.ttl = it.max;
   muzzleLight.position.copy(p);
   muzzleLight.intensity = 26;
+  // a wisp of smoke drifts off the muzzle after the flash
+  const wisp = puffs.take();
+  wisp.m.position.copy(p);
+  wisp.m.scale.set(0.22, 0.22, 1);
+  wisp.grow = 0.9;
+  wisp.max = 0.5;
+  wisp.m.material.opacity = 0.3;
+  wisp.m.visible = true;
+  wisp.ttl = wisp.max;
+}
+
+export function fxSparks(p, n = 6) {
+  for (let i = 0; i < n; i++) {
+    const it = sparks.take();
+    it.m.position.copy(p);
+    it.vel.set((Math.random() - 0.5) * 3.4, Math.random() * 2.6 + 0.4, (Math.random() - 0.5) * 3.4);
+    const s = 0.07 + Math.random() * 0.09;
+    it.m.scale.set(s, s, 1);
+    it.max = 0.2 + Math.random() * 0.16;
+    it.m.material.opacity = 1;
+    it.m.visible = true;
+    it.ttl = it.max;
+  }
 }
 
 export function fxExplosion(p) {
@@ -125,6 +153,14 @@ export function updateFx(dt, t, smokeOrigin, furnaceMat) {
   for (const it of flashes.items) {
     if (it.ttl <= 0) continue;
     it.ttl -= dt;
+    if (it.ttl <= 0) it.m.visible = false;
+  }
+  for (const it of sparks.items) {
+    if (it.ttl <= 0) continue;
+    it.ttl -= dt;
+    it.vel.y -= 9 * dt;
+    it.m.position.addScaledVector(it.vel, dt);
+    it.m.material.opacity = Math.max(0, it.ttl / it.max);
     if (it.ttl <= 0) it.m.visible = false;
   }
   for (const it of boom.items) {

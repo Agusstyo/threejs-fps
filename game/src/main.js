@@ -54,7 +54,10 @@ if (shot) {
   document.getElementById('play').addEventListener('click', () => {
     G.mode = 'play';
     menuEl.hidden = true;
-    renderer.domElement.requestPointerLock();
+    try {
+      const lockReq = renderer.domElement.requestPointerLock();
+      if (lockReq && lockReq.catch) lockReq.catch(() => {});
+    } catch { /* pointer lock is a nicety, never a blocker */ }
   });
 }
 document.addEventListener('keydown', (e) => {

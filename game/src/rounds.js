@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { G, TEAM, TEAM_NAME, WIN_ROUNDS, ROUND_TIME, BUY_TIME, BOMB_TIME, DEFUSE_TIME, START_MONEY, announce, feed } from './state.js';
 import { createBot } from './bots.js';
-import { makeWeapon } from './weapons.js';
+import { makeWeapon, GRENADE_PRICE } from './weapons.js';
 import { sfx } from './audio.js';
 import { fxExplosion } from './fx.js';
 
@@ -55,6 +55,9 @@ function botBuy(bot) {
   else if (bot.money >= 1400) tryBuy('badger', 1400);
   else if (bot.money >= 1100 && G.rng() < 0.5) tryBuy('mule', 1100);
   if (bot.weapons.primary && bot.money >= 650 && bot.armor < 100) { bot.money -= 650; bot.armor = 100; }
+  if (bot.weapons.primary && bot.grenades < 1 && bot.money >= GRENADE_PRICE + 600 && G.rng() < 0.45) {
+    bot.money -= GRENADE_PRICE; bot.grenades = 1;
+  }
 }
 
 export function startMatch() {

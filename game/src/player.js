@@ -22,6 +22,7 @@ export function createPlayer(spawn) {
     weapons: { primary: null, sidearm: makeWeapon('kestrel') },
     current: 'sidearm', grenades: 0,
     drawUntil: 0, recoilP: 0, recoilY: 0, kick: 0, plantT: 0, speed2d: 0,
+    shake: 0, landDip: 0,
     vm: {}, vmGroup: null, lastAttacker: null, lastHitAt: -9,
   };
   return p;
@@ -76,7 +77,12 @@ export function initInput(canvas, onFirstClick) {
   });
   canvas.addEventListener('click', () => {
     initAudio();
-    if (G.mode === 'play' && !locked) canvas.requestPointerLock();
+    if (G.mode === 'play' && !locked) {
+      try {
+        const lockReq = canvas.requestPointerLock();
+        if (lockReq && lockReq.catch) lockReq.catch(() => {});
+      } catch { /* pointer lock is a nicety, never a blocker */ }
+    }
     if (onFirstClick) onFirstClick();
   });
   document.addEventListener('pointerlockchange', () => {
@@ -174,7 +180,11 @@ export function updatePlayer(dt) {
   const accel = p.onGround ? 42 : 7;
   p.velX += clamp(wx - p.velX, -accel * dt, accel * dt);
   p.velZ += clamp(wz - p.velZ, -accel * dt, accel * dt);
+  const vyIn = p.vy, wasGround = p.onGround;
   moveActor(G.world, p, p.velX * dt, p.velZ * dt, dt);
+  if (!wasGround && p.onGround && vyIn < -6) p.landDip = Math.min(0.085, -vyIn * 0.009);
+  p.landDip = lerp(p.landDip, 0, 1 - Math.exp(-10 * dt));
+  p.shake = lerp(p.shake || 0, 0, 1 - Math.exp(-6.5 * dt));
   p.speed2d = Math.hypot(p.velX, p.velZ);
 
   const w = currentWeapon(p);
@@ -231,9 +241,15 @@ export function updatePlayer(dt) {
 export function poseCamera(camera, dt) {
   const p = G.player;
   eyePos(p, _eye);
+  const sh = p.shake || 0, t = G.time;
   camera.position.copy(_eye);
+  camera.position.y -= p.landDip + Math.sin(t * 39) * 0.02 * sh;
   camera.rotation.order = 'YXZ';
-  camera.rotation.set(p.pitch + p.recoilP, p.yaw + p.recoilY, 0);
+  camera.rotation.set(
+    p.pitch + p.recoilP + Math.sin(t * 43) * 0.012 * sh,
+    p.yaw + p.recoilY + Math.sin(t * 29) * 0.01 * sh,
+    Math.sin(t * 47) * 0.022 * sh,
+  );
   const targetFov = adsHeld && p.alive ? 52 : 74;
   if (Math.abs(camera.fov - targetFov) > 0.1) { camera.fov = lerp(camera.fov, targetFov, 1 - Math.exp(-12 * dt)); camera.updateProjectionMatrix(); }
   if (p.vmGroup) {

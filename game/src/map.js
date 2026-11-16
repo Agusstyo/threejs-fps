@@ -52,8 +52,8 @@ export function buildMap(scene) {
   scene.fog = new THREE.Fog(0x584a3c, 34, 110);
   scene.background = new THREE.Color(0x2b3442);
 
-  const sun = new THREE.DirectionalLight(0xffb37a, 2.6);
-  sun.position.set(-38, 30, 26);
+  const sun = new THREE.DirectionalLight(0xffb37a, 2.4);
+  sun.position.set(-38, 17, 26);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -46; sun.shadow.camera.right = 46;
@@ -137,6 +137,57 @@ export function buildMap(scene) {
   lampAt(-22, -2, 0xff8c42, 60);
   lampAt(23, -14, 0x9fd8ff, 45);
   lampAt(0, 6, 0xffd9a0, 40);
+  lampAt(13, -16.5, 0x9fd8ff, 38);
+
+  // ---- dressing: barrels, slag, pipes, lit windows, slicks ----
+  const barrelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.95, 12);
+  const barrel = (x, z, mat) => {
+    const m = new THREE.Mesh(barrelGeo, mat);
+    m.position.set(x, 0.475, z);
+    m.castShadow = true; m.receiveShadow = true;
+    group.add(m);
+    colliders.push({ x0: x - 0.34, x1: x + 0.34, z0: z - 0.34, z1: z + 0.34, y0: 0, y1: 0.95 });
+  };
+  barrel(-6.5, -13.5, mats.rust); barrel(-5.7, -12.8, mats.darkMetal); barrel(-6.2, -12.2, mats.rust);
+  barrel(12, 16.5, mats.ochre); barrel(12.8, 15.9, mats.rust);
+  barrel(-28, 3, mats.teal); barrel(31, -16, mats.darkMetal);
+  barrel(8, -13, mats.ochre);
+  // a channel of molten slag runs from the furnace toward the hall door,
+  // sharing the furnace material so the flicker animation drives both
+  box(-22, -5.8, 0.55, 4.6, 0.07, mats.emberGlow, 0, false);
+  const slagPool = new THREE.Mesh(new THREE.CircleGeometry(1.15, 18), mats.emberGlow);
+  slagPool.rotation.x = -Math.PI / 2; slagPool.position.set(-22, 0.045, -3.0);
+  group.add(slagPool);
+  // steam pipes run the length of the hall's north wall, up out of the way
+  const pipeGeo = new THREE.CylinderGeometry(0.09, 0.09, 16, 8);
+  for (const [py, r] of [[3.6, 0.09], [3.28, 0.06]]) {
+    const pipe = new THREE.Mesh(r === 0.09 ? pipeGeo : new THREE.CylinderGeometry(r, r, 16, 8), mats.darkMetal);
+    pipe.rotation.z = Math.PI / 2;
+    pipe.position.set(-22, py, -14.85);
+    pipe.castShadow = true;
+    group.add(pipe);
+  }
+  // lit windows high on the perimeter's north wall
+  for (const wx of [-18, -6, 6, 18]) box(wx, -25.92, 3.2, 0.14, 0.55, mats.lampGlow, 3.6, false);
+  // dark oil slicks that catch the light
+  const slickMat = new THREE.MeshStandardMaterial({ color: 0x0c0d10, roughness: 0.16, metalness: 0.55 });
+  for (const [sx, sz, sr] of [[4, 12, 2.2], [-11, -13, 1.7], [26, 10, 2.4], [-3, -19, 1.5]]) {
+    const s = new THREE.Mesh(new THREE.CircleGeometry(sr, 16), slickMat);
+    s.rotation.x = -Math.PI / 2; s.position.set(sx, 0.015, sz);
+    s.receiveShadow = true;
+    group.add(s);
+  }
+  // a second, shorter chimney over the hall roof
+  const chimney2 = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 4.2, 10), mats.darkMetal);
+  chimney2.position.set(-19, 5.2, -12); chimney2.castShadow = true; group.add(chimney2);
+  colliders.push({ x0: -19.8, x1: -18.2, z0: -12.8, z1: -11.2, y0: 3.1, y1: 7.3 });
+  // one crate left askew on the depot perch stack
+  const askew = new THREE.Mesh(unitBox, mats.crate);
+  askew.scale.set(1.3, 1.3, 1.3);
+  askew.position.set(16.1, 2.55, -9);
+  askew.rotation.set(0.05, 0.4, 0.15);
+  askew.castShadow = true;
+  group.add(askew);
 
   // ---- site decals ----
   const decal = (texSite, x, z) => {

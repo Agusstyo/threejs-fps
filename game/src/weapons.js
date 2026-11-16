@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { G, feed } from './state.js';
 import { rayHit, raySphere, losClear } from './physics.js';
-import { fxTracer, fxImpact, fxMuzzle, fxExplosion } from './fx.js';
+import { fxTracer, fxImpact, fxMuzzle, fxExplosion, fxSparks } from './fx.js';
 import { sfx } from './audio.js';
 import { clamp } from './util.js';
 
@@ -56,7 +56,10 @@ export function damageActor(target, raw, zone, attacker) {
   target.hp -= dmg;
   target.lastAttacker = attacker;
   target.lastHitAt = G.time;
-  if (target.isPlayer) G.events.push({ k: 'playerHurt', from: attacker ? attacker.pos : null });
+  if (target.isPlayer) {
+    G.events.push({ k: 'playerHurt', from: attacker ? attacker.pos : null });
+    target.shake = Math.min(0.55, (target.shake || 0) + 0.1 + dmg * 0.006);
+  }
   if (attacker && attacker.isPlayer) G.events.push({ k: 'hit', head: zone === 'head', killed: target.hp <= 0 });
   if (target.hp <= 0) {
     target.hp = 0;
@@ -119,6 +122,7 @@ export function shootHitscan(shooter, w, origin, dir, spreadScale, muzzlePos) {
       damageActor(bestActor, dmg, bestZone, shooter);
       anyHit = true;
       fxImpact(_end);
+      fxSparks(_end, bestZone === 'head' ? 8 : 5);
     } else if (wall) {
       fxImpact(_end);
     }
@@ -226,15 +230,22 @@ export function buildViewModel(defId, team) {
     vmBox(g, vmMats.body, 0, 0, -0.1, 0.07, 0.11, 0.24);
     vmBox(g, vmMats.grip, 0, -0.09, 0.02, 0.06, 0.12, 0.08);
     vmBox(g, accent, 0, 0.045, -0.16, 0.075, 0.02, 0.1);
+    vmBox(g, vmMats.body, 0, 0.062, 0.0, 0.014, 0.02, 0.03);   // rear sight notch
+    vmBox(g, accent, 0, 0.062, -0.2, 0.012, 0.018, 0.012);    // front sight dot
   } else if (defId === 'mule') {
     vmBox(g, vmMats.body, 0, 0, -0.2, 0.09, 0.1, 0.52);
     vmBox(g, vmMats.grip, 0, -0.05, -0.28, 0.07, 0.05, 0.2);
     vmBox(g, vmMats.grip, 0, -0.09, 0.06, 0.06, 0.12, 0.08);
+    vmBox(g, vmMats.body, 0, -0.075, -0.12, 0.06, 0.05, 0.22); // tube magazine
+    vmBox(g, accent, 0, 0.058, -0.44, 0.014, 0.016, 0.014);   // bead sight
   } else if (defId === 'badger') {
     vmBox(g, vmMats.body, 0, 0, -0.18, 0.08, 0.12, 0.44);
     vmBox(g, vmMats.body, 0, 0.01, -0.44, 0.045, 0.045, 0.16);
     vmBox(g, vmMats.grip, 0, -0.11, -0.1, 0.05, 0.14, 0.06);
     vmBox(g, accent, 0, -0.02, 0.08, 0.085, 0.06, 0.1);
+    vmBox(g, vmMats.grip, 0, -0.145, -0.2, 0.045, 0.13, 0.07); // curved magazine
+    vmBox(g, vmMats.body, 0, 0.085, -0.4, 0.014, 0.045, 0.014); // front post
+    vmBox(g, vmMats.body, 0, 0.085, 0.02, 0.05, 0.03, 0.04);   // rear aperture
   } else { // longarm
     vmBox(g, vmMats.body, 0, 0, -0.22, 0.08, 0.11, 0.56);
     vmBox(g, vmMats.body, 0, 0.01, -0.56, 0.04, 0.04, 0.22);
@@ -242,6 +253,9 @@ export function buildViewModel(defId, team) {
     vmBox(g, vmMats.grip, 0, -0.07, 0.14, 0.07, 0.09, 0.16);
     vmBox(g, accent, 0, 0.075, -0.3, 0.02, 0.035, 0.12);
     vmBox(g, vmMats.body, 0, 0.09, -0.05, 0.05, 0.05, 0.05); // rear sight block
+    vmBox(g, vmMats.grip, 0, -0.14, -0.3, 0.048, 0.15, 0.085); // magazine
+    vmBox(g, vmMats.body, 0, 0.095, -0.52, 0.014, 0.05, 0.014); // front post
+    vmBox(g, vmMats.grip, 0, -0.045, -0.44, 0.07, 0.045, 0.18); // ribbed handguard
   }
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0, 0.01, defId === 'kestrel' ? -0.24 : defId === 'mule' ? -0.48 : defId === 'badger' ? -0.54 : -0.68);

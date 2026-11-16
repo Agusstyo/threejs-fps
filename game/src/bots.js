@@ -4,10 +4,10 @@
 // post, engages what it sees with burst fire and strafing, fetches a dropped
 // charge, plants it, or defuses — the same verbs the player has.
 import * as THREE from 'three';
-import { G, TEAM } from './state.js';
+import { G, TEAM, feed } from './state.js';
 import { findPath, nearestNode } from './map.js';
 import { moveActor, losClear } from './physics.js';
-import { makeWeapon, shootHitscan, startReload, finishReload } from './weapons.js';
+import { makeWeapon, shootHitscan, startReload, finishReload, throwGrenade } from './weapons.js';
 import { clamp, lerpAngle } from './util.js';
 
 export const BOT_NAMES = { atk: ['Vex', 'Onyx', 'Rook'], def: ['Hale', 'Ivers', 'Moss', 'Quill'] };
@@ -19,6 +19,10 @@ const torsoMats = {
   def: new THREE.MeshStandardMaterial({ color: 0x2a7f76, roughness: 0.75 }),
 };
 const gunMat = new THREE.MeshStandardMaterial({ color: 0x1d2026, roughness: 0.5, metalness: 0.4 });
+const visorMats = {
+  atk: new THREE.MeshStandardMaterial({ color: 0x101216, emissive: 0xff7847, emissiveIntensity: 2.0, roughness: 0.4 }),
+  def: new THREE.MeshStandardMaterial({ color: 0x101216, emissive: 0x37c8b4, emissiveIntensity: 2.0, roughness: 0.4 }),
+};
 
 function part(parent, mat, x, y, z, sx, sy, sz) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
@@ -42,6 +46,9 @@ export function buildFigure(team) {
   part(upper, limbMat, 0, 0.02, 0, 0.4, 0.1, 0.22);
   part(upper, skinMat, 0, 0.78, 0, 0.24, 0.26, 0.24);
   part(upper, torsoMat, 0, 0.9, 0, 0.29, 0.13, 0.29);       // helmet
+  part(upper, visorMats[team], 0, 0.79, -0.125, 0.2, 0.045, 0.02);  // lit visor strip
+  part(upper, limbMat, 0, 0.32, 0.19, 0.34, 0.44, 0.12);            // backpack
+  part(upper, visorMats[team], 0.13, 0.44, -0.135, 0.05, 0.05, 0.02); // chest light
   part(upper, limbMat, 0.2, 0.38, -0.18, 0.11, 0.11, 0.42);        // right arm to gun
   part(upper, limbMat, -0.16, 0.3, -0.22, 0.11, 0.11, 0.36);       // left arm
   const gun = part(upper, gunMat, 0.14, 0.42, -0.42, 0.08, 0.13, 0.66);
@@ -142,7 +149,17 @@ function think(bot) {
   let seen = null;
   for (const f of aliveFoesOf(bot)) if (canSee(bot, f)) { seen = f; break; }
   if (seen) {
-    if (ai.seen !== seen) ai.reactAt = now + 0.26 + G.rng() * 0.22;
+    if (ai.seen !== seen) {
+      ai.reactAt = now + 0.26 + G.rng() * 0.22;
+      // a fresh contact gets called out on the feed, throttled per bot
+      if (now > (ai.calloutAt || 0)) {
+        ai.calloutAt = now + 7;
+        const sA = G.world.sites.A, sB = G.world.sites.B;
+        const zone = Math.hypot(seen.pos.x - sA.x, seen.pos.z - sA.z) < 10 ? 'Furnace Hall'
+          : Math.hypot(seen.pos.x - sB.x, seen.pos.z - sB.z) < 10 ? 'the Depot' : 'the yard';
+        feed(`${bot.name}: contact — ${zone}`);
+      }
+    }
     ai.seen = seen; ai.seenPos.copy(seen.pos); ai.seenAt = now;
   } else if (now - ai.seenAt > 1.8) ai.seen = null;
   // hearing: enemy gunfire within 30 m in the last second gives a rough fix
@@ -180,6 +197,18 @@ export function updateBot(bot, dt) {
   const engaging = ai.seen && ai.seen.alive && now - ai.seenAt < 1.8;
   bot.crouching = false;
 
+  // a frag goes toward the last-seen spot when the target has just ducked
+  // out of sight at mid range: flush the cover instead of pushing blind
+  if (!frozen && bot.grenades > 0 && now >= (ai.nadeAt || 0) && now - ai.seenAt < 2.2) {
+    const nd = Math.hypot(ai.seenPos.x - bot.pos.x, ai.seenPos.z - bot.pos.z);
+    const freshVisual = ai.seen && now - ai.seenAt < 0.3;
+    if (nd > 8 && nd < 21 && !freshVisual) {
+      eyeOf(bot, _eye);
+      _dir.set(ai.seenPos.x - _eye.x, (ai.seenPos.y + 1.0) - _eye.y, ai.seenPos.z - _eye.z).normalize();
+      if (throwGrenade(bot, _eye, _dir)) ai.nadeAt = now + 9;
+    }
+  }
+
   if (frozen) {
     stopBot(bot, dt);
   } else if (engaging) {
@@ -205,6 +234,9 @@ function engage(bot, dt) {
     moveToward(bot, (-dz / dist) * ai.strafeDir, (dx / dist) * ai.strafeDir, 1.7, dt);
     if (bot.speed2d < 0.4) ai.settleAt = now;
   }
+  // at range, a bot ducks between bursts: harder to hit, and its own
+  // hit zones drop to the crouched profile while it waits out the pause
+  bot.crouching = dist > 16 && now < ai.pauseUntil;
   // fire in bursts once the reaction time has passed and the lane is clear
   const w = botWeapon(bot);
   if (now < ai.reactAt) return;

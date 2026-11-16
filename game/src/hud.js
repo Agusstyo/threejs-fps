@@ -4,6 +4,7 @@
 import { G, TEAM_NAME, BUY_TIME } from './state.js';
 import { WEAPONS, GRENADE_PRICE, ARMOR_PRICE } from './weapons.js';
 import { buyItem, currentWeapon, isLocked } from './player.js';
+import { sfx } from './audio.js';
 import { clamp } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -47,9 +48,13 @@ export function updateHud() {
   if (!p) return;
   // drain presentation events
   for (const e of G.events.drain()) {
-    if (e.k === 'hit') { hitmarkUntil = G.time + 0.14; hitmarkKill = e.killed; }
+    if (e.k === 'hit') {
+      hitmarkUntil = G.time + 0.14; hitmarkKill = e.killed;
+      if (e.killed) sfx.kill(); else sfx.hit(e.head);
+    }
     else if (e.k === 'playerHurt') {
       hurtUntil = G.time + 0.7;
+      sfx.hurt();
       if (e.from) hurtAngle = Math.atan2(-(e.from.x - p.pos.x), -(e.from.z - p.pos.z)) - p.yaw;
     }
   }
